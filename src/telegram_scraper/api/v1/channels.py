@@ -121,9 +121,13 @@ async def get_channel_messages(
     current_user: CurrentUser,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
-    search: str = Query(None, description="Search in message text"),
+    search: str = Query(None, description="Full-text search in message text"),
+    media_type: str = Query(None, description="Filter by media type (photo, video, document, audio)"),
+    date_from: str = Query(None, description="Filter from date (YYYY-MM-DD)"),
+    date_to: str = Query(None, description="Filter to date (YYYY-MM-DD)"),
+    sender_id: int = Query(None, description="Filter by sender ID"),
 ) -> dict:
-    """Get messages for a channel."""
+    """Get messages for a channel with advanced filters."""
     offset = (page - 1) * limit
     return await ChannelService.get_messages(
         db=db,
@@ -132,6 +136,10 @@ async def get_channel_messages(
         limit=limit,
         offset=offset,
         search_query=search,
+        media_type=media_type,
+        date_from=date_from,
+        date_to=date_to,
+        sender_id=sender_id,
     )
 
 

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from telegram_scraper.models.scraping_job import ScrapingJob
     from telegram_scraper.models.telegram_session import TelegramSession
     from telegram_scraper.models.user_channel import UserChannel
+    from telegram_scraper.models.keyword_alert import KeywordAlert
 
 
 class User(Base, UUIDMixin, TimestampMixin):
@@ -36,6 +37,11 @@ class User(Base, UUIDMixin, TimestampMixin):
     )
     scraping_jobs: Mapped[List["ScrapingJob"]] = relationship(
         "ScrapingJob",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    keyword_alerts: Mapped[List["KeywordAlert"]] = relationship(
+        "KeywordAlert",
         back_populates="user",
         cascade="all, delete-orphan",
     )

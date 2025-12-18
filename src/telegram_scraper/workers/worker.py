@@ -9,6 +9,7 @@ from arq.connections import RedisSettings
 from telegram_scraper.config import settings
 from telegram_scraper.workers.tasks.scrape_channel import scrape_channel
 from telegram_scraper.workers.tasks.scheduler import check_scheduled_jobs
+from telegram_scraper.workers.tasks.download_media import download_single_media, download_media_batch
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,19 +51,36 @@ async def scrape_channel_task(
 
 async def download_media_task(
     ctx: dict[str, Any],
-    job_id: str,
-    media_ids: list[str],
+    media_id: str,
     session_id: str,
 ) -> dict[str, Any]:
-    """Download media files for given media records."""
-    logger.info(f"Starting media download for job {job_id}, {len(media_ids)} files")
+    """Download a single media file."""
+    logger.info(f"Starting single media download for {media_id}")
 
-    # TODO: Implement media download logic
-    return {
-        "job_id": job_id,
-        "downloaded": 0,
-        "failed": 0,
-    }
+    result = await download_single_media(
+        media_id=media_id,
+        session_id=session_id,
+    )
+
+    return result
+
+
+async def download_media_batch_task(
+    ctx: dict[str, Any],
+    channel_id: str,
+    session_id: str,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Download a batch of pending media for a channel."""
+    logger.info(f"Starting batch media download for channel {channel_id}")
+
+    result = await download_media_batch(
+        channel_id=channel_id,
+        session_id=session_id,
+        limit=limit,
+    )
+
+    return result
 
 
 async def continuous_scrape_task(
@@ -91,6 +109,7 @@ class WorkerSettings:
     functions = [
         scrape_channel_task,
         download_media_task,
+        download_media_batch_task,
         continuous_scrape_task,
         check_scheduled_jobs,
     ]

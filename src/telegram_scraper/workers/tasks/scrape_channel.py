@@ -2,11 +2,12 @@
 
 import asyncio
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from telethon import TelegramClient
@@ -25,9 +26,90 @@ from telegram_scraper.models.message import Message
 from telegram_scraper.models.scraping_job import ScrapingJob
 from telegram_scraper.models.telegram_session import TelegramSession
 from telegram_scraper.models.user_channel import UserChannel
+from telegram_scraper.models.keyword_alert import KeywordAlert, KeywordMatch
 from telegram_scraper.services.telegram_service import decrypt_session_string
 
 logger = logging.getLogger(__name__)
+
+
+async def check_keyword_alerts(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    channel_id: uuid.UUID,
+    message: Message,
+    message_text: str | None,
+) -> int:
+    """
+    Check message against user's keyword alerts and create matches.
+
+    Returns the number of matches found.
+    """
+    if not message_text:
+        return 0
+
+    # Get active keyword alerts for this user
+    # Either alerts for this specific channel or alerts for all channels (channel_id is NULL)
+    result = await db.execute(
+        select(KeywordAlert).where(
+            KeywordAlert.user_id == user_id,
+            KeywordAlert.is_active == True,
+            (KeywordAlert.channel_id == channel_id) | (KeywordAlert.channel_id.is_(None)),
+        )
+    )
+    alerts = result.scalars().all()
+
+    matches_found = 0
+    now = datetime.now(timezone.utc)
+
+    for alert in alerts:
+        matched = False
+        matched_text = None
+
+        if alert.is_regex:
+            # Regex matching
+            flags = 0 if alert.is_case_sensitive else re.IGNORECASE
+            try:
+                match = re.search(alert.keyword, message_text, flags)
+                if match:
+                    matched = True
+                    # Get context around match (50 chars before/after)
+                    start = max(0, match.start() - 50)
+                    end = min(len(message_text), match.end() + 50)
+                    matched_text = message_text[start:end]
+            except re.error:
+                # Invalid regex, skip
+                continue
+        else:
+            # Plain text matching
+            search_text = message_text if alert.is_case_sensitive else message_text.lower()
+            keyword = alert.keyword if alert.is_case_sensitive else alert.keyword.lower()
+
+            idx = search_text.find(keyword)
+            if idx != -1:
+                matched = True
+                # Get context around match
+                start = max(0, idx - 50)
+                end = min(len(message_text), idx + len(keyword) + 50)
+                matched_text = message_text[start:end]
+
+        if matched:
+            # Create match record
+            match_record = KeywordMatch(
+                keyword_alert_id=alert.id,
+                message_id=message.id,
+                channel_id=channel_id,
+                matched_text=matched_text,
+            )
+            db.add(match_record)
+
+            # Update alert stats
+            alert.match_count += 1
+            alert.last_match_at = now
+
+            matches_found += 1
+            logger.info(f"Keyword match found: '{alert.keyword}' in message {message.id}")
+
+    return matches_found
 
 
 async def get_db_session() -> AsyncSession:
@@ -254,6 +336,18 @@ async def scrape_channel(
             if len(batch) >= batch_size:
                 db.add_all(batch)
                 await db.commit()
+
+                # Check keyword alerts for each message in batch
+                for msg_record in batch:
+                    await check_keyword_alerts(
+                        db,
+                        uuid.UUID(user_id),
+                        channel.id,
+                        msg_record,
+                        msg_record.message_text,
+                    )
+                await db.commit()
+
                 batch = []
 
                 # Update progress
@@ -275,6 +369,17 @@ async def scrape_channel(
         # Insert remaining batch
         if batch:
             db.add_all(batch)
+            await db.commit()
+
+            # Check keyword alerts for remaining messages
+            for msg_record in batch:
+                await check_keyword_alerts(
+                    db,
+                    uuid.UUID(user_id),
+                    channel.id,
+                    msg_record,
+                    msg_record.message_text,
+                )
             await db.commit()
 
         # Update user_channel with last scraped message

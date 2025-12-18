@@ -2,9 +2,9 @@
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -204,8 +204,12 @@ class ChannelService:
         limit: int = 50,
         offset: int = 0,
         search_query: str | None = None,
+        media_type: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        sender_id: int | None = None,
     ) -> dict[str, Any]:
-        """Get messages for a channel with optional search."""
+        """Get messages for a channel with advanced filters."""
         # Verify user has access to channel
         result = await db.execute(
             select(UserChannel).where(
@@ -217,21 +221,54 @@ class ChannelService:
         if not result.scalar_one_or_none():
             return {"messages": [], "total": 0, "limit": limit, "offset": offset}
 
-        # Build base query
-        base_filter = Message.channel_id == channel_id
+        # Build filters list
+        filters = [Message.channel_id == channel_id]
+
+        # Full-text search using PostgreSQL tsvector
         if search_query:
-            base_filter = base_filter & Message.message_text.ilike(f"%{search_query}%")
+            # Use PostgreSQL full-text search for better performance
+            search_vector = func.to_tsvector('english', func.coalesce(Message.message_text, ''))
+            search_tsquery = func.plainto_tsquery('english', search_query)
+            filters.append(search_vector.op('@@')(search_tsquery))
+
+        # Media type filter
+        if media_type:
+            filters.append(Message.media_type == media_type)
+
+        # Date range filters
+        if date_from:
+            try:
+                from_date = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                filters.append(Message.date >= from_date)
+            except ValueError:
+                pass  # Invalid date format, skip filter
+
+        if date_to:
+            try:
+                to_date = datetime.strptime(date_to, "%Y-%m-%d").replace(
+                    hour=23, minute=59, second=59, tzinfo=timezone.utc
+                )
+                filters.append(Message.date <= to_date)
+            except ValueError:
+                pass  # Invalid date format, skip filter
+
+        # Sender filter
+        if sender_id:
+            filters.append(Message.sender_id == sender_id)
+
+        # Combine all filters
+        combined_filter = and_(*filters)
 
         # Get total count
         count_result = await db.execute(
-            select(func.count(Message.id)).where(base_filter)
+            select(func.count(Message.id)).where(combined_filter)
         )
         total = count_result.scalar() or 0
 
         # Get messages
         result = await db.execute(
             select(Message)
-            .where(base_filter)
+            .where(combined_filter)
             .order_by(Message.date.desc())
             .limit(limit)
             .offset(offset)

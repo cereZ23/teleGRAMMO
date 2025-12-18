@@ -3,8 +3,11 @@
 import os
 from uuid import UUID
 
+from arq import ArqRedis, create_pool
+from arq.connections import RedisSettings
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy import select, func
 
 from telegram_scraper.api.deps import CurrentUser, DbSession
@@ -12,6 +15,19 @@ from telegram_scraper.config import settings
 from telegram_scraper.models.media import Media
 from telegram_scraper.models.channel import Channel
 from telegram_scraper.models.user_channel import UserChannel
+from telegram_scraper.models.telegram_session import TelegramSession
+
+
+class DownloadRequest(BaseModel):
+    """Request to download media."""
+    session_id: UUID
+
+
+class BatchDownloadRequest(BaseModel):
+    """Request to download media batch."""
+    session_id: UUID
+    channel_id: UUID
+    limit: int = 10
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -149,3 +165,168 @@ async def download_media(
         filename=media.file_name or f"media_{media_id}",
         media_type=media.mime_type or "application/octet-stream",
     )
+
+
+@router.post("/{media_id}/start-download")
+async def start_media_download(
+    media_id: UUID,
+    request: DownloadRequest,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Start downloading a single media file."""
+    # Verify user owns this media
+    result = await db.execute(
+        select(Media).join(Channel).join(UserChannel).where(
+            Media.id == media_id,
+            UserChannel.user_id == current_user.id,
+            UserChannel.is_active == True,
+        )
+    )
+    media = result.scalar_one_or_none()
+
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    if media.download_status == "completed":
+        return {"status": "already_completed", "media_id": str(media_id)}
+
+    if media.download_status == "downloading":
+        return {"status": "already_downloading", "media_id": str(media_id)}
+
+    # Verify session belongs to user
+    result = await db.execute(
+        select(TelegramSession).where(
+            TelegramSession.id == request.session_id,
+            TelegramSession.user_id == current_user.id,
+        )
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=400, detail="Invalid session")
+
+    # Queue the download task
+    redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    await redis.enqueue_job(
+        "download_media_task",
+        str(media_id),
+        str(request.session_id),
+    )
+    await redis.close()
+
+    return {"status": "queued", "media_id": str(media_id)}
+
+
+@router.post("/batch-download")
+async def start_batch_download(
+    request: BatchDownloadRequest,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Start downloading a batch of pending media for a channel."""
+    # Verify user owns this channel
+    result = await db.execute(
+        select(UserChannel).where(
+            UserChannel.channel_id == request.channel_id,
+            UserChannel.user_id == current_user.id,
+            UserChannel.is_active == True,
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    # Verify session belongs to user
+    result = await db.execute(
+        select(TelegramSession).where(
+            TelegramSession.id == request.session_id,
+            TelegramSession.user_id == current_user.id,
+        )
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=400, detail="Invalid session")
+
+    # Count pending media
+    result = await db.execute(
+        select(func.count(Media.id)).where(
+            Media.channel_id == request.channel_id,
+            Media.download_status == "pending",
+        )
+    )
+    pending_count = result.scalar() or 0
+
+    if pending_count == 0:
+        return {"status": "no_pending_media", "pending_count": 0}
+
+    # Queue the batch download task
+    redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    await redis.enqueue_job(
+        "download_media_batch_task",
+        str(request.channel_id),
+        str(request.session_id),
+        request.limit,
+    )
+    await redis.close()
+
+    return {
+        "status": "queued",
+        "channel_id": str(request.channel_id),
+        "pending_count": pending_count,
+        "batch_size": min(request.limit, pending_count),
+    }
+
+
+@router.get("/channel/{channel_id}/stats")
+async def get_channel_media_stats(
+    channel_id: UUID,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Get media download stats for a channel."""
+    # Verify user owns this channel
+    result = await db.execute(
+        select(UserChannel).where(
+            UserChannel.channel_id == channel_id,
+            UserChannel.user_id == current_user.id,
+            UserChannel.is_active == True,
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    # Get stats by status
+    result = await db.execute(
+        select(Media.download_status, func.count(Media.id))
+        .where(Media.channel_id == channel_id)
+        .group_by(Media.download_status)
+    )
+    status_counts = dict(result.all())
+
+    # Get stats by type
+    result = await db.execute(
+        select(Media.media_type, func.count(Media.id))
+        .where(Media.channel_id == channel_id)
+        .group_by(Media.media_type)
+    )
+    type_counts = dict(result.all())
+
+    # Get total size of downloaded media
+    result = await db.execute(
+        select(func.sum(Media.file_size)).where(
+            Media.channel_id == channel_id,
+            Media.download_status == "completed",
+        )
+    )
+    total_size = result.scalar() or 0
+
+    return {
+        "channel_id": str(channel_id),
+        "by_status": {
+            "pending": status_counts.get("pending", 0),
+            "downloading": status_counts.get("downloading", 0),
+            "completed": status_counts.get("completed", 0),
+            "failed": status_counts.get("failed", 0),
+        },
+        "by_type": type_counts,
+        "total_downloaded_size": total_size,
+    }

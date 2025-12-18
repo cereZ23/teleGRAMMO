@@ -28,8 +28,10 @@ import {
   RefreshCw,
   Clock,
   Settings,
+  Filter,
+  X,
 } from "lucide-react";
-import { channelsApi, jobsApi, exportApi } from "@/lib/api";
+import { channelsApi, jobsApi, exportApi, mediaApi, telegramApi } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -53,6 +55,20 @@ export default function ChannelDetailPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+
+  const hasActiveFilters = mediaTypeFilter || dateFrom || dateTo || searchQuery;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setMediaTypeFilter("");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  };
 
   const { data: channel, isLoading: channelLoading } = useQuery({
     queryKey: ["channel", channelId],
@@ -63,8 +79,13 @@ export default function ChannelDetailPage() {
   });
 
   const { data: messagesData, isLoading: messagesLoading } = useQuery({
-    queryKey: ["messages", channelId, page, searchQuery],
-    queryFn: () => channelsApi.getMessages(channelId, page, 50),
+    queryKey: ["messages", channelId, page, searchQuery, mediaTypeFilter, dateFrom, dateTo],
+    queryFn: () => channelsApi.getMessages(channelId, page, 50, {
+      search: searchQuery || undefined,
+      mediaType: mediaTypeFilter || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    }),
     enabled: !!channelId,
   });
 
@@ -123,6 +144,35 @@ export default function ChannelDetailPage() {
   };
 
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
+  const [downloadingMedia, setDownloadingMedia] = useState(false);
+
+  // Get sessions for media download
+  const { data: sessionsData } = useQuery({
+    queryKey: ["sessions"],
+    queryFn: telegramApi.getSessions,
+  });
+
+  const activeSession = sessionsData?.sessions?.find((s: { is_authenticated: boolean }) => s.is_authenticated);
+
+  // Get media stats
+  const { data: mediaStats, refetch: refetchMediaStats } = useQuery({
+    queryKey: ["mediaStats", channelId],
+    queryFn: () => mediaApi.getMediaStats(channelId),
+    enabled: !!channelId,
+  });
+
+  const handleDownloadMedia = async () => {
+    if (!activeSession) return;
+    setDownloadingMedia(true);
+    try {
+      await mediaApi.startBatchDownload(channelId, activeSession.id, 20);
+      setTimeout(() => refetchMediaStats(), 2000);
+    } catch (error) {
+      console.error("Failed to start media download:", error);
+    } finally {
+      setDownloadingMedia(false);
+    }
+  };
 
   const handleExportCSV = async () => {
     setExporting("csv");
@@ -259,6 +309,75 @@ export default function ChannelDetailPage() {
         </Card>
       </div>
 
+      {/* Media Download */}
+      {mediaStats && (mediaStats.by_status.pending > 0 || mediaStats.by_status.completed > 0) && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Image className="h-5 w-5" />
+                <CardTitle>Media Downloads</CardTitle>
+              </div>
+              {mediaStats.by_status.pending > 0 && activeSession && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadMedia}
+                  disabled={downloadingMedia}
+                >
+                  {downloadingMedia ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Download Media
+                </Button>
+              )}
+            </div>
+            <CardDescription>
+              {mediaStats.by_status.completed} downloaded, {mediaStats.by_status.pending} pending
+              {mediaStats.by_status.failed > 0 && `, ${mediaStats.by_status.failed} failed`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="rounded-lg border p-3">
+                <div className="text-2xl font-bold text-green-600">{mediaStats.by_status.completed}</div>
+                <p className="text-xs text-muted-foreground">Completed</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-2xl font-bold text-yellow-600">{mediaStats.by_status.pending}</div>
+                <p className="text-xs text-muted-foreground">Pending</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-2xl font-bold text-blue-600">{mediaStats.by_status.downloading}</div>
+                <p className="text-xs text-muted-foreground">Downloading</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-2xl font-bold">
+                  {mediaStats.total_downloaded_size
+                    ? `${(mediaStats.total_downloaded_size / (1024 * 1024)).toFixed(1)} MB`
+                    : "0 MB"}
+                </div>
+                <p className="text-xs text-muted-foreground">Total Size</p>
+              </div>
+            </div>
+            {Object.keys(mediaStats.by_type || {}).length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-medium">Media Types</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(mediaStats.by_type).map(([type, count]) => (
+                    <span key={type} className="rounded-full bg-muted px-3 py-1 text-sm">
+                      {type}: {count as number}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Schedule Settings */}
       <Card>
         <CardHeader>
@@ -373,23 +492,95 @@ export default function ChannelDetailPage() {
       {/* Messages */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Messages</CardTitle>
-              <CardDescription>{totalMessages} total messages</CardDescription>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Messages</CardTitle>
+                <CardDescription>
+                  {totalMessages} {hasActiveFilters ? "filtered" : "total"} messages
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Full-text search..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(1);
+                    }}
+                    className="pl-9"
+                  />
+                </div>
+                <Button
+                  variant={showFilters ? "secondary" : "outline"}
+                  size="icon"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="icon" onClick={clearFilters}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search messages..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+
+            {/* Filter Panel */}
+            {showFilters && (
+              <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-muted/50 p-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Media Type</label>
+                  <select
+                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                    value={mediaTypeFilter}
+                    onChange={(e) => {
+                      setMediaTypeFilter(e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="">All types</option>
+                    <option value="photo">Photo</option>
+                    <option value="video">Video</option>
+                    <option value="document">Document</option>
+                    <option value="audio">Audio</option>
+                    <option value="voice">Voice</option>
+                    <option value="sticker">Sticker</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Date From</label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-9 w-40"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Date To</label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setDateTo(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-9 w-40"
+                  />
+                </div>
+                {hasActiveFilters && (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
