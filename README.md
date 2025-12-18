@@ -1,207 +1,370 @@
-# Telegram Channel Scraper 📱
+# TeleGRAMMO
 
-A powerful Python script that allows you to scrape messages and media from Telegram channels using the Telethon library. Features include real-time continuous scraping, media downloading, and data export capabilities.
+A modern, full-stack Telegram channel scraper with a beautiful web interface. Scrape messages, media, and analytics from Telegram channels you have access to.
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12-blue.svg)
+![Next.js](https://img.shields.io/badge/next.js-14-black.svg)
+![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
 
 ```
 ___________________  _________
 \__    ___/  _____/ /   _____/
-  |    | /   \  ___ \_____  \ 
+  |    | /   \  ___ \_____  \
   |    | \    \_\  \/        \
   |____|  \______  /_______  /
                  \/        \/
 ```
 
-## What's New in v3.1 🎉
+## Features
 
-**Enhanced Message Data:**
-- **Message statistics** - Captures views, forwards, and post_author for each message
-- **Reactions support** - Records all emoji reactions with counts (e.g., "😀 12 👍 3")
-- **Automatic database migration** - Seamlessly adds new columns to existing databases
-- **Richer exports** - All new data included in CSV/JSON exports
+- **Multi-user Authentication** - Secure JWT-based authentication with registration/login
+- **Telegram Integration** - Connect multiple Telegram accounts via phone verification
+- **Channel Scraping** - Scrape messages from any channel you have access to
+- **Scheduled Scraping** - Auto-scrape channels on a schedule (hourly, daily, weekly)
+- **Analytics Dashboard** - Beautiful charts showing message trends, top senders, media breakdown
+- **Export Data** - Export messages to CSV or JSON format
+- **Real-time Progress** - Track scraping progress with live updates
+- **Media Tracking** - Track photos, videos, documents, and other media
+- **Search** - Search through scraped messages
+- **Responsive UI** - Works on desktop and mobile
 
-**Improved Channel Management:**
-- **Channel names displayed** - Shows channel names alongside IDs everywhere
-- **Smart filtering** - List option now only shows Channels and Groups (no private chats)
-- **channels_list.csv export** - Automatically saves channel list with names, IDs, usernames, and types
-- **"all" selection** - Quickly add all listed channels at once
-- **Better export naming** - Files now named as `ID_username.csv` and `ID_username.json`
+## Tech Stack
 
-**Bug Fixes:**
-- **Fixed channel ID parsing** - Resolved "invalid literal for int()" error in fix missing media
-- **Better entity resolution** - Handles both numeric IDs and channel usernames
-- **Improved error messages** - Shows channel names with IDs for clearer debugging
+### Backend
+- **FastAPI** - Modern async Python web framework
+- **PostgreSQL** - Robust database
+- **Redis** - Job queue for background tasks
+- **ARQ** - Async background workers
+- **Telethon** - Telegram MTProto API client
+- **SQLAlchemy 2.0** - Async ORM with type hints
 
-## Features 🚀
+### Frontend
+- **Next.js 14** - React framework with App Router
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - Beautiful UI components
+- **React Query** - Server state management
+- **Recharts** - Analytics charts
 
-- **QR Code & Phone Authentication** - Choose your preferred login method
-- Scrape messages with full metadata (views, forwards, reactions, post author)
-- Download media files with parallel processing and unique naming
-- Real-time continuous scraping
-- Export data to JSON and CSV formats with enhanced metadata
-- SQLite database storage with automatic schema migration
-- Resume capability (saves progress)
-- Interactive menu with channel names and numbered selection
-- Smart channel filtering (only shows channels/groups)
-- Progress tracking with visual progress bars
-- Automatic channels list export to CSV
+## Prerequisites
 
-## Prerequisites 📋
+- **Docker** & **Docker Compose** (v2.0+)
+- **Git**
 
-Before running the script, you'll need:
+That's it! Everything else runs in containers.
 
-- Python 3.7 or higher
-- Telegram account
-- API credentials from Telegram
+## Quick Start
 
-### Required Python packages
+### 1. Clone the repository
 
-```
-pip install -r requirements.txt
-```
-
-## Getting Telegram API Credentials 🔑
-
-1. Visit https://my.telegram.org/auth
-2. Log in with your phone number
-3. Click on "API development tools"
-4. Fill in the form:
-   - App title: Your app name
-   - Short name: Your app short name
-   - Platform: Can be left as "Desktop"
-   - Description: Brief description of your app
-5. Click "Create application"
-6. You'll receive:
-   - `api_id`: A number
-   - `api_hash`: A string of letters and numbers
-   
-Keep these credentials safe, you'll need them to run the script!
-
-## Setup and Running 🔧
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/unnohwn/telegram-scraper.git
-cd telegram-scraper
+git clone https://github.com/cereZ23/teleGRAMMO.git
+cd teleGRAMMO
 ```
 
-2. Install requirements:
+### 2. Configure environment
+
 ```bash
-pip install -r requirements.txt
+# Copy the example environment file
+cp .env.example .env
+
+# Edit .env with your favorite editor
+nano .env
 ```
 
-3. Run the script:
+**Generate required secrets:**
+
 ```bash
-python telegram-scraper.py
+# Generate SECRET_KEY (copy the output to .env)
+openssl rand -hex 32
+
+# Generate ENCRYPTION_KEY (copy the output to .env)
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-4. On first run, you'll be prompted to enter:
-   - Your API ID (from my.telegram.org)
-   - Your API Hash (from my.telegram.org)
-   - **Choose authentication method:**
-     - **QR Code** (Recommended) - Scan with your phone (no phone number needed)
-     - **Phone Number** - Traditional SMS verification
+### 3. Start the application
 
-## Usage 📝
-
-The script provides a clean interactive menu:
-
-```
-========================================
-           TELEGRAM SCRAPER
-========================================
-[S] Scrape channels
-[C] Continuous scraping  
-[M] Media scraping: ON
-[L] List & add channels
-[R] Remove channels
-[E] Export data
-[T] Rescrape media
-[Q] Quit
-========================================
+```bash
+docker-compose up -d
 ```
 
-### Channel Selection Made Easy 🔢
+Wait about 30 seconds for all services to initialize.
 
-Instead of typing long channel IDs, use numbers:
+### 4. Access the application
 
-**Adding Channels:**
+Open your browser: **http://localhost:3000**
+
+## First-Time Setup
+
+### 1. Create an Account
+
+1. Click **"Register"** on the login page
+2. Enter your email and password
+3. Click **"Create Account"**
+4. Log in with your credentials
+
+### 2. Connect Telegram
+
+1. Go to **"Telegram"** in the sidebar
+2. Follow the step-by-step tutorial displayed on the page
+3. Get API credentials from [my.telegram.org/apps](https://my.telegram.org/apps):
+   - Log in with your phone number
+   - Create a new application
+   - Copy **API ID** (number) and **API Hash** (string)
+4. Click **"Add Session"** and enter your credentials
+5. Enter your phone number (with country code, e.g., +1234567890)
+6. Enter the verification code sent to your Telegram app
+
+### 3. Add Channels
+
+1. Go to **"Channels"** in the sidebar
+2. Click **"Add Channel"**
+3. Select channels from your Telegram account
+4. Click **"Add"** next to each channel you want to track
+
+### 4. Start Scraping
+
+1. Click on a channel card to open its detail page
+2. Click **"Start Scrape"** button
+3. Watch the progress bar update in real-time
+4. Once complete, browse messages or export data
+
+### 5. Enable Scheduled Scraping (Optional)
+
+1. On the channel detail page, find **"Scheduled Scraping"**
+2. Click **"Configure"**
+3. Select an interval (1 hour, 6 hours, 12 hours, daily, weekly)
+4. Click **"Enable Auto-Scrape"**
+
+## Docker Services
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `frontend` | 3000 | Next.js web interface |
+| `api` | 8000 | FastAPI REST API |
+| `postgres` | 5432 | PostgreSQL database |
+| `redis` | 6379 | Redis job queue |
+| `worker` | - | ARQ background worker |
+
+## Environment Variables
+
+Create a `.env` file with these variables:
+
+```env
+# Database
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=change_this_secure_password
+POSTGRES_DB=telegram_scraper
+DATABASE_URL=postgresql+asyncpg://postgres:change_this_secure_password@postgres:5432/telegram_scraper
+
+# Redis
+REDIS_URL=redis://redis:6379
+
+# Security - CHANGE THESE IN PRODUCTION!
+SECRET_KEY=generate_with_openssl_rand_hex_32
+ENCRYPTION_KEY=generate_with_fernet_generate_key
+
+# App settings
+DEBUG=true
+APP_NAME=TeleGRAMMO
 ```
-[1] Tech News (ID: -1002116176890, Type: Channel, Username: @technews)
-[2] Python Dev (ID: -1001597139842, Type: Group, Username: @pythondev)
-[3] Daily Updates (ID: -1002274713954, Type: Channel, Username: @dailyupdates)
 
-Enter: 1,3 (adds channels 1 and 3)
-Or: all (adds all listed channels)
+## API Documentation
+
+Access the interactive API docs at:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+### Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/auth/register` | POST | Register new user |
+| `/api/v1/auth/login` | POST | Login, returns JWT tokens |
+| `/api/v1/auth/me` | GET | Get current user info |
+| `/api/v1/telegram/sessions` | GET/POST | Manage Telegram sessions |
+| `/api/v1/telegram/sessions/{id}/send-code` | POST | Send verification code |
+| `/api/v1/telegram/sessions/{id}/verify-code` | POST | Verify code |
+| `/api/v1/channels` | GET/POST/DELETE | Manage tracked channels |
+| `/api/v1/channels/{id}/messages` | GET | Get channel messages (paginated) |
+| `/api/v1/channels/{id}/schedule` | GET/PUT | Manage scraping schedule |
+| `/api/v1/jobs/scrape` | POST | Start scraping job |
+| `/api/v1/jobs` | GET | List all jobs |
+| `/api/v1/analytics/overview` | GET | Get analytics overview |
+| `/api/v1/analytics/messages-over-time` | GET | Message trend data |
+| `/api/v1/export/channels/{id}/csv` | GET | Export to CSV |
+| `/api/v1/export/channels/{id}/json` | GET | Export to JSON |
+
+## Project Structure
+
+```
+teleGRAMMO/
+├── src/telegram_scraper/          # Python backend
+│   ├── api/v1/                    # FastAPI routes
+│   │   ├── auth.py                # Authentication endpoints
+│   │   ├── telegram.py            # Telegram session management
+│   │   ├── channels.py            # Channel CRUD + scheduling
+│   │   ├── jobs.py                # Scraping job management
+│   │   ├── analytics.py           # Analytics endpoints
+│   │   └── export.py              # CSV/JSON export
+│   ├── models/                    # SQLAlchemy ORM models
+│   ├── services/                  # Business logic
+│   │   ├── telegram_service.py    # Telethon client management
+│   │   ├── channel_service.py     # Channel operations
+│   │   └── scheduler_service.py   # Scheduled scraping
+│   └── workers/                   # Background tasks
+│       ├── worker.py              # ARQ worker config
+│       └── tasks/                 # Task implementations
+│           ├── scrape_channel.py  # Scraping logic
+│           └── scheduler.py       # Schedule checker
+├── frontend/                      # Next.js frontend
+│   ├── src/
+│   │   ├── app/                   # App Router pages
+│   │   │   ├── dashboard/         # Dashboard pages
+│   │   │   │   ├── analytics/     # Analytics page
+│   │   │   │   ├── channels/      # Channel management
+│   │   │   │   ├── telegram/      # Session management
+│   │   │   │   └── jobs/          # Job history
+│   │   │   ├── login/             # Login page
+│   │   │   └── register/          # Registration page
+│   │   ├── components/ui/         # shadcn/ui components
+│   │   ├── lib/api.ts             # API client
+│   │   └── store/                 # Zustand state
+│   └── package.json
+├── alembic/                       # Database migrations
+├── docker-compose.yml             # Docker services
+├── Dockerfile                     # Backend container
+├── frontend/Dockerfile            # Frontend container
+└── .env.example                   # Environment template
 ```
 
-**Viewing Your Channels:**
+## Common Operations
+
+### View logs
+
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f api
+docker-compose logs -f worker
+docker-compose logs -f frontend
 ```
-[1] Tech News (ID: -1002116176890), Last Message ID: 5234, Messages: 12450
-[2] Python Dev (ID: -1001597139842), Last Message ID: 8192, Messages: 45782
+
+### Restart services
+
+```bash
+# Restart all
+docker-compose restart
+
+# Restart specific service
+docker-compose restart api
+docker-compose restart worker
 ```
 
-**Scraping Channels:**
-- Single: `1`
-- Multiple: `1,3,5`
-- All: `all`
-- Mix formats: `1,-1001597139842,3`
+### Stop the application
 
-## Data Storage 💾
+```bash
+docker-compose down
+```
 
-### Database Structure
+### Reset everything (including data)
 
-Data is stored in SQLite databases, one per channel:
-- Location: `./channelname/channelname.db`
-- Optimized with indexes for fast queries
-- WAL mode for better performance
-- Schema includes: message_id, date, sender info, message text, media info, reply_to, post_author, views, forwards, reactions
-- Automatic migration adds new columns to existing databases
+```bash
+docker-compose down -v
+docker-compose up -d
+```
 
-### Media Storage 📁
+### Update to latest version
 
-Media files are stored with unique naming:
-- Location: `./channelname/media/`
-- Format: `{message_id}-{unique_id}-{original_name}.ext`
-- **No more file overwrites** - Each file gets a unique name
+```bash
+git pull
+docker-compose build
+docker-compose up -d
+```
 
-### Exported Data 📊
+## Troubleshooting
 
-Export formats:
-1. **CSV**: `./channelname/channelid_username.csv`
-2. **JSON**: `./channelname/channelid_username.json`
-3. **Channel List**: `./channels_list.csv` (automatically created when using [L] option)
+### "Could not find the input entity" error
 
-All exports include complete message metadata: views, forwards, reactions, and post author information.
+This is handled automatically. If you see this error, try:
+1. Re-authenticate your Telegram session
+2. Make sure you have access to the channel
 
-## Performance Features ⚙️
+### Scraping shows 0% progress
 
-- **5 concurrent downloads** for faster media processing
-- **Batch database operations** for optimal speed
-- **Progress bars** with real-time feedback
-- **Resume capability** - Continue where you left off
-- **Memory-efficient** exports for large datasets
+Check worker logs:
+```bash
+docker-compose logs -f worker
+```
 
-## Error Handling 🛠️
+The worker might be starting up or processing the job.
 
-- Automatic retry with exponential backoff
-- Rate limit compliance
-- Network error recovery
-- State preservation during interruptions
+### Can't connect to application
 
-## Limitations ⚠️
+1. Check if all containers are running:
+   ```bash
+   docker-compose ps
+   ```
+2. Check for errors:
+   ```bash
+   docker-compose logs api
+   docker-compose logs frontend
+   ```
 
-- Respects Telegram's rate limits
-- Can only access public channels or channels you're a member of
-- Media download size limits apply as per Telegram's restrictions
+### Database connection refused
 
-## License 📄
+Wait 30 seconds after starting - PostgreSQL needs time to initialize.
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Frontend shows "Network Error"
 
-## Disclaimer ⚖️
+Make sure the API is running on port 8000:
+```bash
+docker-compose logs api
+```
 
-This tool is for educational purposes only. Make sure to:
-- Respect Telegram's Terms of Service
-- Obtain necessary permissions before scraping
-- Use responsibly and ethically
-- Comply with data protection regulations
+## Security Considerations
+
+- **Passwords** are hashed with bcrypt (cost factor 12)
+- **JWT tokens** expire after 30 minutes (refresh tokens: 7 days)
+- **Telegram sessions** are encrypted at rest with Fernet (AES-128)
+- **API endpoints** require authentication
+- **CORS** is configured to allow only the frontend origin
+
+**For production deployment:**
+1. Use strong, unique values for `SECRET_KEY` and `ENCRYPTION_KEY`
+2. Set `DEBUG=false`
+3. Use HTTPS with a reverse proxy (nginx, Caddy, Traefik)
+4. Consider rate limiting
+5. Use a proper secrets manager
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [Telethon](https://github.com/LonamiWebs/Telethon) - Telegram MTProto API client
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
+- [Next.js](https://nextjs.org/) - React framework
+- [shadcn/ui](https://ui.shadcn.com/) - Beautiful UI components
+- [Recharts](https://recharts.org/) - Chart library
+- [ARQ](https://github.com/samuelcolvin/arq) - Async job queue
+
+## Support
+
+For issues and feature requests, please use [GitHub Issues](https://github.com/cereZ23/teleGRAMMO/issues).
+
+---
+
+Made with Python, TypeScript, and caffeine.
