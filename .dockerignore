@@ -1,0 +1,49 @@
+# Node modules - let Docker install fresh
+**/node_modules
+frontend/node_modules
+
+# Git
+.git
+.gitignore
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+
+# Python
+**/__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.venv
+venv
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+*.log
+logs
+
+# Local env files
+.env.local
+.env*.local
+
+# Next.js
+frontend/.next
+frontend/out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage
+.coverage
+
+# Misc
+*.md
+!README.md
