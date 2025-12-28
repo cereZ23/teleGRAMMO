@@ -1,15 +1,13 @@
 """Scheduler service for managing scheduled scraping jobs."""
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from telegram_scraper.models.channel import Channel
 from telegram_scraper.models.scraping_job import ScrapingJob
 from telegram_scraper.models.telegram_session import TelegramSession
 from telegram_scraper.models.user_channel import UserChannel
@@ -19,15 +17,15 @@ logger = logging.getLogger(__name__)
 
 async def get_due_schedules(db: AsyncSession) -> list[UserChannel]:
     """Get all user_channels that are due for scheduled scraping."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     result = await db.execute(
         select(UserChannel)
         .options(joinedload(UserChannel.channel), joinedload(UserChannel.user))
         .where(
             and_(
-                UserChannel.schedule_enabled == True,
-                UserChannel.is_active == True,
+                UserChannel.schedule_enabled,
+                UserChannel.is_active,
                 UserChannel.next_scheduled_at <= now,
             )
         )
@@ -35,13 +33,13 @@ async def get_due_schedules(db: AsyncSession) -> list[UserChannel]:
     return list(result.scalars().unique().all())
 
 
-async def get_user_session(db: AsyncSession, user_id: UUID) -> Optional[TelegramSession]:
+async def get_user_session(db: AsyncSession, user_id: UUID) -> TelegramSession | None:
     """Get an authenticated Telegram session for a user."""
     result = await db.execute(
         select(TelegramSession).where(
             and_(
                 TelegramSession.user_id == user_id,
-                TelegramSession.is_authenticated == True,
+                TelegramSession.is_authenticated,
             )
         )
     )
@@ -65,7 +63,7 @@ async def update_schedule(
     db: AsyncSession,
     user_channel: UserChannel,
     enabled: bool,
-    interval_hours: Optional[int] = None,
+    interval_hours: int | None = None,
 ) -> UserChannel:
     """Update the schedule settings for a user channel."""
     user_channel.schedule_enabled = enabled
@@ -73,7 +71,7 @@ async def update_schedule(
     if enabled and interval_hours:
         user_channel.schedule_interval_hours = interval_hours
         # Set next scheduled time
-        user_channel.next_scheduled_at = datetime.now(timezone.utc) + timedelta(hours=interval_hours)
+        user_channel.next_scheduled_at = datetime.now(UTC) + timedelta(hours=interval_hours)
     elif not enabled:
         user_channel.next_scheduled_at = None
 
@@ -85,11 +83,11 @@ async def update_schedule(
 async def calculate_next_run(user_channel: UserChannel) -> datetime:
     """Calculate the next scheduled run time."""
     interval = user_channel.schedule_interval_hours or 24
-    return datetime.now(timezone.utc) + timedelta(hours=interval)
+    return datetime.now(UTC) + timedelta(hours=interval)
 
 
 async def mark_scheduled_run(db: AsyncSession, user_channel: UserChannel) -> None:
     """Mark that a scheduled run has been triggered."""
-    user_channel.last_scheduled_at = datetime.now(timezone.utc)
+    user_channel.last_scheduled_at = datetime.now(UTC)
     user_channel.next_scheduled_at = await calculate_next_run(user_channel)
     await db.commit()

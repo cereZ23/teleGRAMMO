@@ -10,8 +10,8 @@ from sqlalchemy import select
 
 from telegram_scraper.api.deps import CurrentUser, DbSession
 from telegram_scraper.config import settings
-from telegram_scraper.models.user_channel import UserChannel
 from telegram_scraper.models.telegram_session import TelegramSession
+from telegram_scraper.models.user_channel import UserChannel
 from telegram_scraper.services.job_service import JobService
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -66,10 +66,12 @@ async def create_scrape_job(
 
         # Get user's first authenticated session
         result = await db.execute(
-            select(TelegramSession).where(
+            select(TelegramSession)
+            .where(
                 TelegramSession.user_id == current_user.id,
-                TelegramSession.is_authenticated == True,
-            ).limit(1)
+                TelegramSession.is_authenticated,
+            )
+            .limit(1)
         )
         session = result.scalar_one_or_none()
         if not session:

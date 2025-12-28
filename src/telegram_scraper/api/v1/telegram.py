@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException, status
 from telegram_scraper.api.deps import CurrentUser, DbSession
 from telegram_scraper.schemas.telegram_session import (
     PhoneLoginRequest,
-    QRLoginResponse,
     SessionStatusResponse,
     TelegramSessionCreate,
     TelegramSessionResponse,
@@ -19,7 +18,9 @@ from telegram_scraper.services.telegram_service import TelegramService
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 
-@router.post("/sessions", response_model=TelegramSessionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/sessions", response_model=TelegramSessionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_session(
     session_data: TelegramSessionCreate,
     db: DbSession,

@@ -1,17 +1,15 @@
 """Analytics endpoints for channel statistics."""
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import and_, func, select, cast, Date
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import Date, and_, cast, func, select
 
 from telegram_scraper.api.deps import CurrentUser, DbSession
 from telegram_scraper.models.channel import Channel
-from telegram_scraper.models.message import Message
 from telegram_scraper.models.media import Media
+from telegram_scraper.models.message import Message
 from telegram_scraper.models.user_channel import UserChannel
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -45,13 +43,11 @@ async def get_overview(
     total_messages = result.scalar() or 0
 
     # Total media
-    result = await db.execute(
-        select(func.count(Media.id)).where(Media.channel_id.in_(channel_ids))
-    )
+    result = await db.execute(select(func.count(Media.id)).where(Media.channel_id.in_(channel_ids)))
     total_media = result.scalar() or 0
 
     # Messages today
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     result = await db.execute(
         select(func.count(Message.id)).where(
             and_(
@@ -87,7 +83,7 @@ async def get_overview(
 async def get_messages_over_time(
     db: DbSession,
     current_user: CurrentUser,
-    channel_id: Optional[UUID] = Query(None),
+    channel_id: UUID | None = Query(None),
     days: int = Query(30, ge=1, le=365),
 ) -> dict:
     """Get message counts grouped by date."""
@@ -115,7 +111,7 @@ async def get_messages_over_time(
         return {"data": []}
 
     # Get message counts by date
-    start_date = datetime.now(timezone.utc) - timedelta(days=days)
+    start_date = datetime.now(UTC) - timedelta(days=days)
 
     result = await db.execute(
         select(
@@ -141,7 +137,7 @@ async def get_messages_over_time(
 async def get_top_senders(
     db: DbSession,
     current_user: CurrentUser,
-    channel_id: Optional[UUID] = Query(None),
+    channel_id: UUID | None = Query(None),
     limit: int = Query(10, ge=1, le=50),
 ) -> dict:
     """Get top message senders."""
@@ -199,12 +195,14 @@ async def get_top_senders(
         if not name:
             name = f"User {row.sender_id}"
 
-        data.append({
-            "sender_id": row.sender_id,
-            "name": name,
-            "username": row.username,
-            "count": row.count,
-        })
+        data.append(
+            {
+                "sender_id": row.sender_id,
+                "name": name,
+                "username": row.username,
+                "count": row.count,
+            }
+        )
 
     return {"data": data}
 
@@ -213,7 +211,7 @@ async def get_top_senders(
 async def get_media_breakdown(
     db: DbSession,
     current_user: CurrentUser,
-    channel_id: Optional[UUID] = Query(None),
+    channel_id: UUID | None = Query(None),
 ) -> dict:
     """Get media type breakdown."""
     # Get user's channel IDs
@@ -263,7 +261,7 @@ async def get_media_breakdown(
 async def get_activity_heatmap(
     db: DbSession,
     current_user: CurrentUser,
-    channel_id: Optional[UUID] = Query(None),
+    channel_id: UUID | None = Query(None),
     days: int = Query(90, ge=1, le=365),
 ) -> dict:
     """Get message activity by hour of day and day of week."""
@@ -289,7 +287,7 @@ async def get_activity_heatmap(
     if not channel_ids:
         return {"data": []}
 
-    start_date = datetime.now(timezone.utc) - timedelta(days=days)
+    start_date = datetime.now(UTC) - timedelta(days=days)
 
     # Get activity by hour
     result = await db.execute(
@@ -341,10 +339,7 @@ async def get_channel_stats(
 ) -> dict:
     """Get stats for each channel."""
     # Get user's channels with stats
-    result = await db.execute(
-        select(UserChannel)
-        .where(UserChannel.user_id == current_user.id)
-    )
+    result = await db.execute(select(UserChannel).where(UserChannel.user_id == current_user.id))
     user_channels = result.scalars().all()
 
     channel_ids = [uc.channel_id for uc in user_channels]
@@ -352,9 +347,7 @@ async def get_channel_stats(
         return {"data": []}
 
     # Get channel details
-    result = await db.execute(
-        select(Channel).where(Channel.id.in_(channel_ids))
-    )
+    result = await db.execute(select(Channel).where(Channel.id.in_(channel_ids)))
     channels = {c.id: c for c in result.scalars().all()}
 
     # Get message counts per channel
@@ -383,14 +376,16 @@ async def get_channel_stats(
     for uc in user_channels:
         channel = channels.get(uc.channel_id)
         if channel:
-            data.append({
-                "id": str(channel.id),
-                "title": channel.title,
-                "username": channel.username,
-                "message_count": message_counts.get(channel.id, 0),
-                "media_count": media_counts.get(channel.id, 0),
-                "schedule_enabled": uc.schedule_enabled,
-            })
+            data.append(
+                {
+                    "id": str(channel.id),
+                    "title": channel.title,
+                    "username": channel.username,
+                    "message_count": message_counts.get(channel.id, 0),
+                    "media_count": media_counts.get(channel.id, 0),
+                    "schedule_enabled": uc.schedule_enabled,
+                }
+            )
 
     # Sort by message count
     data.sort(key=lambda x: x["message_count"], reverse=True)

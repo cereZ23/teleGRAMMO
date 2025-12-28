@@ -7,9 +7,12 @@ from arq import cron
 from arq.connections import RedisSettings
 
 from telegram_scraper.config import settings
-from telegram_scraper.workers.tasks.scrape_channel import scrape_channel
+from telegram_scraper.workers.tasks.download_media import (
+    download_media_batch,
+    download_single_media,
+)
 from telegram_scraper.workers.tasks.scheduler import check_scheduled_jobs
-from telegram_scraper.workers.tasks.download_media import download_single_media, download_media_batch
+from telegram_scraper.workers.tasks.scrape_channel import scrape_channel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

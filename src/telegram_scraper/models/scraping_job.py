@@ -29,7 +29,7 @@ class ScrapingJob(Base, UUIDMixin, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    channel_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    channel_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("channels.id", ondelete="CASCADE"),
         nullable=True,
@@ -50,17 +50,17 @@ class ScrapingJob(Base, UUIDMixin, TimestampMixin):
     )
     messages_processed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     media_downloaded: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    started_at: Mapped[Optional[datetime]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    job_metadata: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
-    arq_job_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    job_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    arq_job_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="scraping_jobs")

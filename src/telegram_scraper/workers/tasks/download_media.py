@@ -1,13 +1,12 @@
 """Media download task implementation."""
 
 import logging
-import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from telethon import TelegramClient
@@ -29,13 +28,9 @@ async def get_db_session() -> AsyncSession:
     return async_session()
 
 
-async def get_telegram_client(
-    db: AsyncSession, session_id: uuid.UUID
-) -> TelegramClient | None:
+async def get_telegram_client(db: AsyncSession, session_id: uuid.UUID) -> TelegramClient | None:
     """Get a Telegram client for a session."""
-    result = await db.execute(
-        select(TelegramSession).where(TelegramSession.id == session_id)
-    )
+    result = await db.execute(select(TelegramSession).where(TelegramSession.id == session_id))
     session = result.scalar_one_or_none()
 
     if not session or not session.session_string:
@@ -66,17 +61,13 @@ async def download_single_media(
 
     try:
         # Get media record
-        result = await db.execute(
-            select(Media).where(Media.id == uuid.UUID(media_id))
-        )
+        result = await db.execute(select(Media).where(Media.id == uuid.UUID(media_id)))
         media = result.scalar_one_or_none()
         if not media:
             return {"status": "error", "error": "Media not found"}
 
         # Get channel info
-        result = await db.execute(
-            select(Channel).where(Channel.id == media.channel_id)
-        )
+        result = await db.execute(select(Channel).where(Channel.id == media.channel_id))
         channel = result.scalar_one_or_none()
         if not channel:
             return {"status": "error", "error": "Channel not found"}
@@ -152,7 +143,7 @@ async def download_single_media(
         media.file_path = str(file_path)
         media.file_name = filename
         media.download_status = "completed"
-        media.downloaded_at = datetime.now(timezone.utc)
+        media.downloaded_at = datetime.now(UTC)
 
         # Get file size
         if file_path.exists():
@@ -172,9 +163,7 @@ async def download_single_media(
         logger.error(f"Error downloading media {media_id}: {e}")
 
         try:
-            result = await db.execute(
-                select(Media).where(Media.id == uuid.UUID(media_id))
-            )
+            result = await db.execute(select(Media).where(Media.id == uuid.UUID(media_id)))
             media = result.scalar_one_or_none()
             if media:
                 media.download_status = "failed"
@@ -225,12 +214,15 @@ async def download_media_batch(
         media_list = result.scalars().all()
 
         if not media_list:
-            return {"status": "completed", "downloaded": 0, "failed": 0, "message": "No pending media"}
+            return {
+                "status": "completed",
+                "downloaded": 0,
+                "failed": 0,
+                "message": "No pending media",
+            }
 
         # Get channel info
-        result = await db.execute(
-            select(Channel).where(Channel.id == uuid.UUID(channel_id))
-        )
+        result = await db.execute(select(Channel).where(Channel.id == uuid.UUID(channel_id)))
         channel = result.scalar_one_or_none()
         if not channel:
             return {"status": "error", "error": "Channel not found"}
@@ -303,7 +295,7 @@ async def download_media_batch(
                 media.file_path = str(file_path)
                 media.file_name = filename
                 media.download_status = "completed"
-                media.downloaded_at = datetime.now(timezone.utc)
+                media.downloaded_at = datetime.now(UTC)
                 if file_path.exists():
                     media.file_size = file_path.stat().st_size
                 await db.commit()

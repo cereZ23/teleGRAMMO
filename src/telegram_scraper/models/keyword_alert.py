@@ -4,15 +4,16 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, Integer
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from telegram_scraper.models.base import Base, UUIDMixin
 
 if TYPE_CHECKING:
-    from telegram_scraper.models.user import User
     from telegram_scraper.models.channel import Channel
+    from telegram_scraper.models.message import Message
+    from telegram_scraper.models.user import User
 
 
 class KeywordAlert(Base, UUIDMixin):
@@ -29,7 +30,7 @@ class KeywordAlert(Base, UUIDMixin):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    channel_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    channel_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("channels.id", ondelete="CASCADE"),
         nullable=True,  # NULL = all channels
@@ -41,20 +42,18 @@ class KeywordAlert(Base, UUIDMixin):
 
     # Notification settings
     notify_email: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    notify_webhook: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    notify_webhook: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Stats
     match_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    last_match_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_match_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default="now()",
         nullable=False,
     )
-    updated_at: Mapped[Optional[datetime]] = mapped_column(
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -97,7 +96,7 @@ class KeywordMatch(Base, UUIDMixin):
     )
 
     # Snippet of matched text for quick preview
-    matched_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    matched_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Whether user has seen this match
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

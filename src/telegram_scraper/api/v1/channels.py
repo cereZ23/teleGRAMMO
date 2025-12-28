@@ -1,7 +1,6 @@
 """Channel management endpoints."""
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -17,16 +16,18 @@ router = APIRouter(prefix="/channels", tags=["channels"])
 
 class ScheduleRequest(BaseModel):
     """Request to update channel schedule."""
+
     enabled: bool
-    interval_hours: Optional[int] = None  # 1, 6, 12, 24, etc.
+    interval_hours: int | None = None  # 1, 6, 12, 24, etc.
 
 
 class ScheduleResponse(BaseModel):
     """Response for channel schedule."""
+
     enabled: bool
-    interval_hours: Optional[int]
-    last_scheduled_at: Optional[datetime]
-    next_scheduled_at: Optional[datetime]
+    interval_hours: int | None
+    last_scheduled_at: datetime | None
+    next_scheduled_at: datetime | None
 
 
 class AddChannelRequest:
@@ -122,7 +123,9 @@ async def get_channel_messages(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
     search: str = Query(None, description="Full-text search in message text"),
-    media_type: str = Query(None, description="Filter by media type (photo, video, document, audio)"),
+    media_type: str = Query(
+        None, description="Filter by media type (photo, video, document, audio)"
+    ),
     date_from: str = Query(None, description="Filter from date (YYYY-MM-DD)"),
     date_to: str = Query(None, description="Filter to date (YYYY-MM-DD)"),
     sender_id: int = Query(None, description="Filter by sender ID"),
@@ -198,12 +201,11 @@ async def update_channel_schedule(
     if request.enabled:
         if not request.interval_hours or request.interval_hours < 1:
             raise HTTPException(
-                status_code=400,
-                detail="interval_hours must be at least 1 when enabling schedule"
+                status_code=400, detail="interval_hours must be at least 1 when enabling schedule"
             )
         user_channel.schedule_interval_hours = request.interval_hours
         # Set next scheduled time to now + interval
-        user_channel.next_scheduled_at = datetime.now(timezone.utc) + timedelta(hours=request.interval_hours)
+        user_channel.next_scheduled_at = datetime.now(UTC) + timedelta(hours=request.interval_hours)
     else:
         user_channel.next_scheduled_at = None
 

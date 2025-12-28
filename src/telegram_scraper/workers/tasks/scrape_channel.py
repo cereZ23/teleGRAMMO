@@ -1,19 +1,20 @@
 """Channel scraping task implementation."""
 
-import asyncio
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.types import (
     Message as TelegramMessage,
+)
+from telethon.tl.types import (
     MessageMediaDocument,
     MessageMediaPhoto,
     MessageMediaWebPage,
@@ -21,12 +22,12 @@ from telethon.tl.types import (
 
 from telegram_scraper.config import settings
 from telegram_scraper.models.channel import Channel
+from telegram_scraper.models.keyword_alert import KeywordAlert, KeywordMatch
 from telegram_scraper.models.media import Media
 from telegram_scraper.models.message import Message
 from telegram_scraper.models.scraping_job import ScrapingJob
 from telegram_scraper.models.telegram_session import TelegramSession
 from telegram_scraper.models.user_channel import UserChannel
-from telegram_scraper.models.keyword_alert import KeywordAlert, KeywordMatch
 from telegram_scraper.services.telegram_service import decrypt_session_string
 
 logger = logging.getLogger(__name__)
@@ -52,14 +53,14 @@ async def check_keyword_alerts(
     result = await db.execute(
         select(KeywordAlert).where(
             KeywordAlert.user_id == user_id,
-            KeywordAlert.is_active == True,
+            KeywordAlert.is_active,
             (KeywordAlert.channel_id == channel_id) | (KeywordAlert.channel_id.is_(None)),
         )
     )
     alerts = result.scalars().all()
 
     matches_found = 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for alert in alerts:
         matched = False
@@ -119,13 +120,9 @@ async def get_db_session() -> AsyncSession:
     return async_session()
 
 
-async def get_telegram_client(
-    db: AsyncSession, session_id: uuid.UUID
-) -> TelegramClient | None:
+async def get_telegram_client(db: AsyncSession, session_id: uuid.UUID) -> TelegramClient | None:
     """Get a Telegram client for a session."""
-    result = await db.execute(
-        select(TelegramSession).where(TelegramSession.id == session_id)
-    )
+    result = await db.execute(select(TelegramSession).where(TelegramSession.id == session_id))
     session = result.scalar_one_or_none()
 
     if not session or not session.session_string:
@@ -191,19 +188,15 @@ async def scrape_channel(
 
     try:
         # Update job status to running
-        result = await db.execute(
-            select(ScrapingJob).where(ScrapingJob.id == uuid.UUID(job_id))
-        )
+        result = await db.execute(select(ScrapingJob).where(ScrapingJob.id == uuid.UUID(job_id)))
         job = result.scalar_one_or_none()
         if job:
             job.status = "running"
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = datetime.now(UTC)
             await db.commit()
 
         # Get channel info
-        result = await db.execute(
-            select(Channel).where(Channel.id == uuid.UUID(channel_id))
-        )
+        result = await db.execute(select(Channel).where(Channel.id == uuid.UUID(channel_id)))
         channel = result.scalar_one_or_none()
         if not channel:
             raise ValueError(f"Channel {channel_id} not found")
@@ -231,7 +224,7 @@ async def scrape_channel(
         total_messages_estimate = 0
         try:
             # Get the channel's full info to estimate total messages
-            full_channel = await client.get_entity(entity)
+            await client.get_entity(entity)
             # Try to get message count - this works for channels/supergroups
             async for msg in client.iter_messages(entity, limit=1):
                 if msg:
@@ -304,7 +297,7 @@ async def scrape_channel(
             msg_record = Message(
                 channel_id=channel.id,
                 telegram_message_id=message.id,
-                date=message.date.replace(tzinfo=timezone.utc),
+                date=message.date.replace(tzinfo=UTC),
                 sender_id=sender_id,
                 first_name=first_name,
                 last_name=last_name,
@@ -364,7 +357,9 @@ async def scrape_channel(
                         job.progress_percent = progress
                     await db.commit()
 
-                logger.info(f"Processed {messages_processed} messages ({job.progress_percent:.1f}%)...")
+                logger.info(
+                    f"Processed {messages_processed} messages ({job.progress_percent:.1f}%)..."
+                )
 
         # Insert remaining batch
         if batch:
@@ -404,16 +399,14 @@ async def scrape_channel(
                 await db.commit()
 
         # Update job as completed
-        result = await db.execute(
-            select(ScrapingJob).where(ScrapingJob.id == uuid.UUID(job_id))
-        )
+        result = await db.execute(select(ScrapingJob).where(ScrapingJob.id == uuid.UUID(job_id)))
         job = result.scalar_one_or_none()
         if job and job.status != "cancelled":
             job.status = "completed"
             job.progress_percent = 100
             job.messages_processed = messages_processed
             job.media_downloaded = media_found
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
             await db.commit()
 
         logger.info(
@@ -439,7 +432,7 @@ async def scrape_channel(
             if job:
                 job.status = "failed"
                 job.error_message = str(e)
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
                 job.messages_processed = messages_processed
                 await db.commit()
         except Exception as db_error:

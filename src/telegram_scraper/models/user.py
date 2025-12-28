@@ -1,6 +1,6 @@
 """User model for authentication."""
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,10 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from telegram_scraper.models.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
+    from telegram_scraper.models.keyword_alert import KeywordAlert
     from telegram_scraper.models.scraping_job import ScrapingJob
     from telegram_scraper.models.telegram_session import TelegramSession
     from telegram_scraper.models.user_channel import UserChannel
-    from telegram_scraper.models.keyword_alert import KeywordAlert
 
 
 class User(Base, UUIDMixin, TimestampMixin):
@@ -25,22 +25,22 @@ class User(Base, UUIDMixin, TimestampMixin):
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
-    telegram_sessions: Mapped[List["TelegramSession"]] = relationship(
+    telegram_sessions: Mapped[list["TelegramSession"]] = relationship(
         "TelegramSession",
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    user_channels: Mapped[List["UserChannel"]] = relationship(
+    user_channels: Mapped[list["UserChannel"]] = relationship(
         "UserChannel",
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    scraping_jobs: Mapped[List["ScrapingJob"]] = relationship(
+    scraping_jobs: Mapped[list["ScrapingJob"]] = relationship(
         "ScrapingJob",
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    keyword_alerts: Mapped[List["KeywordAlert"]] = relationship(
+    keyword_alerts: Mapped[list["KeywordAlert"]] = relationship(
         "KeywordAlert",
         back_populates="user",
         cascade="all, delete-orphan",

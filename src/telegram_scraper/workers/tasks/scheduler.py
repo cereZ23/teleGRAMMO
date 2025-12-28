@@ -1,11 +1,8 @@
 """Scheduler task for checking and queuing due scraping jobs."""
 
 import logging
-import uuid
-from datetime import datetime, timezone
 
 from arq import ArqRedis
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -48,9 +45,7 @@ async def check_scheduled_jobs(ctx: dict) -> dict:
             try:
                 # Skip if there's already an active job for this channel
                 if await has_active_job(db, user_channel.channel_id):
-                    logger.info(
-                        f"Skipping channel {user_channel.channel_id} - job already active"
-                    )
+                    logger.info(f"Skipping channel {user_channel.channel_id} - job already active")
                     # Still update next_scheduled_at to prevent retrying immediately
                     await mark_scheduled_run(db, user_channel)
                     continue
@@ -58,9 +53,7 @@ async def check_scheduled_jobs(ctx: dict) -> dict:
                 # Get an authenticated session for this user
                 session = await get_user_session(db, user_channel.user_id)
                 if not session:
-                    logger.warning(
-                        f"No authenticated session for user {user_channel.user_id}"
-                    )
+                    logger.warning(f"No authenticated session for user {user_channel.user_id}")
                     continue
 
                 # Create a scraping job

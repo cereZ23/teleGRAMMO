@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -34,17 +34,17 @@ class Message(Base, UUIDMixin):
     )
     telegram_message_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    sender_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    first_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    last_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    message_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    media_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    reply_to_message_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    post_author: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    views: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    forwards: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    reactions: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    sender_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    message_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    media_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    reply_to_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    post_author: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    views: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    forwards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reactions: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default="now()",
@@ -53,7 +53,7 @@ class Message(Base, UUIDMixin):
 
     # Relationships
     channel: Mapped["Channel"] = relationship("Channel", back_populates="messages")
-    media_files: Mapped[List["Media"]] = relationship(
+    media_files: Mapped[list["Media"]] = relationship(
         "Media",
         back_populates="message",
         cascade="all, delete-orphan",

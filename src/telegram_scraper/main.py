@@ -1,7 +1,7 @@
 """FastAPI application entry point."""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,9 +49,7 @@ app.add_middleware(
 
 # Exception handlers
 @app.exception_handler(AuthenticationError)
-async def authentication_error_handler(
-    request: Request, exc: AuthenticationError
-) -> JSONResponse:
+async def authentication_error_handler(request: Request, exc: AuthenticationError) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_401_UNAUTHORIZED,
         content={"detail": exc.message},
@@ -60,9 +58,7 @@ async def authentication_error_handler(
 
 
 @app.exception_handler(AuthorizationError)
-async def authorization_error_handler(
-    request: Request, exc: AuthorizationError
-) -> JSONResponse:
+async def authorization_error_handler(request: Request, exc: AuthorizationError) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN,
         content={"detail": exc.message},

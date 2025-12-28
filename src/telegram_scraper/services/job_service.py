@@ -1,10 +1,10 @@
 """Job service for managing scraping jobs."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from telegram_scraper.models.scraping_job import ScrapingJob
@@ -29,7 +29,7 @@ class JobService:
             select(UserChannel).where(
                 UserChannel.channel_id == channel_id,
                 UserChannel.user_id == user_id,
-                UserChannel.is_active == True,
+                UserChannel.is_active,
             )
         )
         user_channel = result.scalar_one_or_none()
@@ -145,9 +145,7 @@ class JobService:
         }
 
     @classmethod
-    async def cancel_job(
-        cls, db: AsyncSession, job_id: uuid.UUID, user_id: uuid.UUID
-    ) -> bool:
+    async def cancel_job(cls, db: AsyncSession, job_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """Cancel a running job."""
         result = await db.execute(
             select(ScrapingJob).where(
@@ -163,7 +161,7 @@ class JobService:
             raise ValueError("Can only cancel pending or running jobs")
 
         job.status = "cancelled"
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(UTC)
         await db.commit()
         return True
 
@@ -187,9 +185,9 @@ class JobService:
         if status:
             job.status = status
             if status == "running" and not job.started_at:
-                job.started_at = datetime.now(timezone.utc)
+                job.started_at = datetime.now(UTC)
             elif status in ["completed", "failed", "cancelled"]:
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
 
         if progress_percent is not None:
             job.progress_percent = progress_percent

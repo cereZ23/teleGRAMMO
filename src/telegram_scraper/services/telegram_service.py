@@ -1,10 +1,9 @@
 """Telegram service for managing Telethon clients and authentication."""
 
-import asyncio
 import base64
 import io
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import qrcode
@@ -70,13 +69,9 @@ class TelegramService:
         return session
 
     @classmethod
-    async def get_sessions(
-        cls, db: AsyncSession, user_id: uuid.UUID
-    ) -> list[TelegramSession]:
+    async def get_sessions(cls, db: AsyncSession, user_id: uuid.UUID) -> list[TelegramSession]:
         """Get all Telegram sessions for a user."""
-        result = await db.execute(
-            select(TelegramSession).where(TelegramSession.user_id == user_id)
-        )
+        result = await db.execute(select(TelegramSession).where(TelegramSession.user_id == user_id))
         return list(result.scalars().all())
 
     @classmethod
@@ -219,7 +214,7 @@ class TelegramService:
                 session_string = client.session.save()
                 session.session_string = encrypt_session_string(session_string)
                 session.is_authenticated = True
-                session.last_used_at = datetime.now(timezone.utc)
+                session.last_used_at = datetime.now(UTC)
 
                 me = await client.get_me()
                 if me:
@@ -263,7 +258,7 @@ class TelegramService:
                 session_string = client.session.save()
                 session.session_string = encrypt_session_string(session_string)
                 session.is_authenticated = True
-                session.last_used_at = datetime.now(timezone.utc)
+                session.last_used_at = datetime.now(UTC)
 
                 me = await client.get_me()
                 if me:
@@ -325,7 +320,7 @@ class TelegramService:
                 return {
                     "qr_url": qr_url,
                     "qr_image": f"data:image/png;base64,{qr_image}",
-                    "expires_at": datetime.fromtimestamp(result.expires, tz=timezone.utc).isoformat(),
+                    "expires_at": datetime.fromtimestamp(result.expires, tz=UTC).isoformat(),
                 }
 
             raise ValueError("Unexpected response from Telegram")
@@ -362,7 +357,7 @@ class TelegramService:
                     session_string = client.session.save()
                     session.session_string = encrypt_session_string(session_string)
                     session.is_authenticated = True
-                    session.last_used_at = datetime.now(timezone.utc)
+                    session.last_used_at = datetime.now(UTC)
 
                     me = await client.get_me()
                     if me:
@@ -408,16 +403,18 @@ class TelegramService:
                 entity = dialog.entity
                 if hasattr(entity, "broadcast") or hasattr(entity, "megagroup"):
                     channel_type = "channel" if getattr(entity, "broadcast", False) else "group"
-                    channels.append({
-                        "id": entity.id,
-                        "title": dialog.title,
-                        "username": getattr(entity, "username", None),
-                        "type": channel_type,
-                        "participants_count": getattr(entity, "participants_count", None),
-                    })
+                    channels.append(
+                        {
+                            "id": entity.id,
+                            "title": dialog.title,
+                            "username": getattr(entity, "username", None),
+                            "type": channel_type,
+                            "participants_count": getattr(entity, "participants_count", None),
+                        }
+                    )
 
             # Update last used
-            session.last_used_at = datetime.now(timezone.utc)
+            session.last_used_at = datetime.now(UTC)
             await db.commit()
 
             return channels

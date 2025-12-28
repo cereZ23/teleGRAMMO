@@ -30,7 +30,7 @@ async def export_channel_csv(
         select(UserChannel).where(
             UserChannel.channel_id == channel_id,
             UserChannel.user_id == current_user.id,
-            UserChannel.is_active == True,
+            UserChannel.is_active,
         )
     )
     if not result.scalar_one_or_none():
@@ -53,25 +53,37 @@ async def export_channel_csv(
     writer = csv.writer(output)
 
     # Header
-    writer.writerow([
-        "telegram_message_id", "date", "sender_id", "first_name", "last_name",
-        "username", "message_text", "media_type", "views", "forwards"
-    ])
+    writer.writerow(
+        [
+            "telegram_message_id",
+            "date",
+            "sender_id",
+            "first_name",
+            "last_name",
+            "username",
+            "message_text",
+            "media_type",
+            "views",
+            "forwards",
+        ]
+    )
 
     # Data rows
     for msg in messages:
-        writer.writerow([
-            msg.telegram_message_id,
-            msg.date.isoformat() if msg.date else "",
-            msg.sender_id or "",
-            msg.first_name or "",
-            msg.last_name or "",
-            msg.username or "",
-            msg.message_text or "",
-            msg.media_type or "",
-            msg.views or 0,
-            msg.forwards or 0,
-        ])
+        writer.writerow(
+            [
+                msg.telegram_message_id,
+                msg.date.isoformat() if msg.date else "",
+                msg.sender_id or "",
+                msg.first_name or "",
+                msg.last_name or "",
+                msg.username or "",
+                msg.message_text or "",
+                msg.media_type or "",
+                msg.views or 0,
+                msg.forwards or 0,
+            ]
+        )
 
     output.seek(0)
 
@@ -97,7 +109,7 @@ async def export_channel_json(
         select(UserChannel).where(
             UserChannel.channel_id == channel_id,
             UserChannel.user_id == current_user.id,
-            UserChannel.is_active == True,
+            UserChannel.is_active,
         )
     )
     if not result.scalar_one_or_none():

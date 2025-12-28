@@ -1,12 +1,11 @@
 """Channel service for managing tracked channels."""
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import and_, func, select, text
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from telegram_scraper.models.channel import Channel
 from telegram_scraper.models.media import Media
@@ -31,9 +30,7 @@ class ChannelService:
     ) -> Channel:
         """Add a channel to track."""
         # Check if channel already exists in DB
-        result = await db.execute(
-            select(Channel).where(Channel.telegram_id == telegram_id)
-        )
+        result = await db.execute(select(Channel).where(Channel.telegram_id == telegram_id))
         channel = result.scalar_one_or_none()
 
         if not channel:
@@ -80,14 +77,12 @@ class ChannelService:
         return channel
 
     @classmethod
-    async def get_channels(
-        cls, db: AsyncSession, user_id: uuid.UUID
-    ) -> list[dict[str, Any]]:
+    async def get_channels(cls, db: AsyncSession, user_id: uuid.UUID) -> list[dict[str, Any]]:
         """Get all channels tracked by a user with stats."""
         result = await db.execute(
             select(Channel, UserChannel)
             .join(UserChannel, UserChannel.channel_id == Channel.id)
-            .where(UserChannel.user_id == user_id, UserChannel.is_active == True)
+            .where(UserChannel.user_id == user_id, UserChannel.is_active)
         )
         rows = result.all()
 
@@ -105,18 +100,20 @@ class ChannelService:
             )
             media_count = media_count_result.scalar() or 0
 
-            channels.append({
-                "id": channel.id,
-                "telegram_id": channel.telegram_id,
-                "username": channel.username,
-                "title": channel.title,
-                "channel_type": channel.channel_type,
-                "message_count": message_count,
-                "media_count": media_count,
-                "last_scraped_message_id": user_channel.last_scraped_message_id,
-                "scrape_media": user_channel.scrape_media,
-                "added_at": user_channel.added_at,
-            })
+            channels.append(
+                {
+                    "id": channel.id,
+                    "telegram_id": channel.telegram_id,
+                    "username": channel.username,
+                    "title": channel.title,
+                    "channel_type": channel.channel_type,
+                    "message_count": message_count,
+                    "media_count": media_count,
+                    "last_scraped_message_id": user_channel.last_scraped_message_id,
+                    "scrape_media": user_channel.scrape_media,
+                    "added_at": user_channel.added_at,
+                }
+            )
 
         return channels
 
@@ -131,7 +128,7 @@ class ChannelService:
             .where(
                 Channel.id == channel_id,
                 UserChannel.user_id == user_id,
-                UserChannel.is_active == True,
+                UserChannel.is_active,
             )
         )
         row = result.first()
@@ -215,7 +212,7 @@ class ChannelService:
             select(UserChannel).where(
                 UserChannel.channel_id == channel_id,
                 UserChannel.user_id == user_id,
-                UserChannel.is_active == True,
+                UserChannel.is_active,
             )
         )
         if not result.scalar_one_or_none():
@@ -227,9 +224,9 @@ class ChannelService:
         # Full-text search using PostgreSQL tsvector
         if search_query:
             # Use PostgreSQL full-text search for better performance
-            search_vector = func.to_tsvector('english', func.coalesce(Message.message_text, ''))
-            search_tsquery = func.plainto_tsquery('english', search_query)
-            filters.append(search_vector.op('@@')(search_tsquery))
+            search_vector = func.to_tsvector("english", func.coalesce(Message.message_text, ""))
+            search_tsquery = func.plainto_tsquery("english", search_query)
+            filters.append(search_vector.op("@@")(search_tsquery))
 
         # Media type filter
         if media_type:
@@ -238,7 +235,7 @@ class ChannelService:
         # Date range filters
         if date_from:
             try:
-                from_date = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                from_date = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=UTC)
                 filters.append(Message.date >= from_date)
             except ValueError:
                 pass  # Invalid date format, skip filter
@@ -246,7 +243,7 @@ class ChannelService:
         if date_to:
             try:
                 to_date = datetime.strptime(date_to, "%Y-%m-%d").replace(
-                    hour=23, minute=59, second=59, tzinfo=timezone.utc
+                    hour=23, minute=59, second=59, tzinfo=UTC
                 )
                 filters.append(Message.date <= to_date)
             except ValueError:
@@ -260,9 +257,7 @@ class ChannelService:
         combined_filter = and_(*filters)
 
         # Get total count
-        count_result = await db.execute(
-            select(func.count(Message.id)).where(combined_filter)
-        )
+        count_result = await db.execute(select(func.count(Message.id)).where(combined_filter))
         total = count_result.scalar() or 0
 
         # Get messages

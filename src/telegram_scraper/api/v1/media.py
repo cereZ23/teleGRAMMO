@@ -3,31 +3,34 @@
 import os
 from uuid import UUID
 
-from arq import ArqRedis, create_pool
+from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from telegram_scraper.api.deps import CurrentUser, DbSession
 from telegram_scraper.config import settings
-from telegram_scraper.models.media import Media
 from telegram_scraper.models.channel import Channel
-from telegram_scraper.models.user_channel import UserChannel
+from telegram_scraper.models.media import Media
 from telegram_scraper.models.telegram_session import TelegramSession
+from telegram_scraper.models.user_channel import UserChannel
 
 
 class DownloadRequest(BaseModel):
     """Request to download media."""
+
     session_id: UUID
 
 
 class BatchDownloadRequest(BaseModel):
     """Request to download media batch."""
+
     session_id: UUID
     channel_id: UUID
     limit: int = 10
+
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -43,14 +46,24 @@ async def list_media(
 ) -> dict:
     """List media files."""
     # Build query
-    query = select(Media).join(Channel).join(UserChannel).where(
-        UserChannel.user_id == current_user.id,
-        UserChannel.is_active == True,
+    query = (
+        select(Media)
+        .join(Channel)
+        .join(UserChannel)
+        .where(
+            UserChannel.user_id == current_user.id,
+            UserChannel.is_active,
+        )
     )
 
-    count_query = select(func.count(Media.id)).join(Channel).join(UserChannel).where(
-        UserChannel.user_id == current_user.id,
-        UserChannel.is_active == True,
+    count_query = (
+        select(func.count(Media.id))
+        .join(Channel)
+        .join(UserChannel)
+        .where(
+            UserChannel.user_id == current_user.id,
+            UserChannel.is_active,
+        )
     )
 
     if channel_id:
@@ -67,9 +80,7 @@ async def list_media(
 
     # Get media
     offset = (page - 1) * limit
-    result = await db.execute(
-        query.order_by(Media.created_at.desc()).limit(limit).offset(offset)
-    )
+    result = await db.execute(query.order_by(Media.created_at.desc()).limit(limit).offset(offset))
     media_list = result.scalars().all()
 
     return {
@@ -102,10 +113,13 @@ async def get_media(
 ) -> dict:
     """Get media file info."""
     result = await db.execute(
-        select(Media).join(Channel).join(UserChannel).where(
+        select(Media)
+        .join(Channel)
+        .join(UserChannel)
+        .where(
             Media.id == media_id,
             UserChannel.user_id == current_user.id,
-            UserChannel.is_active == True,
+            UserChannel.is_active,
         )
     )
     media = result.scalar_one_or_none()
@@ -138,10 +152,13 @@ async def download_media(
 ) -> FileResponse:
     """Download a media file."""
     result = await db.execute(
-        select(Media).join(Channel).join(UserChannel).where(
+        select(Media)
+        .join(Channel)
+        .join(UserChannel)
+        .where(
             Media.id == media_id,
             UserChannel.user_id == current_user.id,
-            UserChannel.is_active == True,
+            UserChannel.is_active,
         )
     )
     media = result.scalar_one_or_none()
@@ -177,10 +194,13 @@ async def start_media_download(
     """Start downloading a single media file."""
     # Verify user owns this media
     result = await db.execute(
-        select(Media).join(Channel).join(UserChannel).where(
+        select(Media)
+        .join(Channel)
+        .join(UserChannel)
+        .where(
             Media.id == media_id,
             UserChannel.user_id == current_user.id,
-            UserChannel.is_active == True,
+            UserChannel.is_active,
         )
     )
     media = result.scalar_one_or_none()
@@ -229,7 +249,7 @@ async def start_batch_download(
         select(UserChannel).where(
             UserChannel.channel_id == request.channel_id,
             UserChannel.user_id == current_user.id,
-            UserChannel.is_active == True,
+            UserChannel.is_active,
         )
     )
     if not result.scalar_one_or_none():
@@ -288,7 +308,7 @@ async def get_channel_media_stats(
         select(UserChannel).where(
             UserChannel.channel_id == channel_id,
             UserChannel.user_id == current_user.id,
-            UserChannel.is_active == True,
+            UserChannel.is_active,
         )
     )
     if not result.scalar_one_or_none():

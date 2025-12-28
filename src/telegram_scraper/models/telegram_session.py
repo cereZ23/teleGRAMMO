@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -27,12 +27,12 @@ class TelegramSession(Base, UUIDMixin, TimestampMixin):
     )
     api_id: Mapped[int] = mapped_column(Integer, nullable=False)
     api_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    session_string: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    phone_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    session_string: Mapped[str | None] = mapped_column(Text, nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_authenticated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    session_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    telegram_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    session_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="telegram_sessions")

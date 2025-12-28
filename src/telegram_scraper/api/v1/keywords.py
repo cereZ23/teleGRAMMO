@@ -1,17 +1,16 @@
 """Keyword Alerts API endpoints."""
 
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import func, select, update
 
 from telegram_scraper.api.deps import CurrentUser, DbSession
-from telegram_scraper.models.keyword_alert import KeywordAlert, KeywordMatch
 from telegram_scraper.models.channel import Channel
+from telegram_scraper.models.keyword_alert import KeywordAlert, KeywordMatch
 from telegram_scraper.models.message import Message
 from telegram_scraper.models.user_channel import UserChannel
 
@@ -20,48 +19,52 @@ router = APIRouter(prefix="/keywords", tags=["keywords"])
 
 class KeywordAlertCreate(BaseModel):
     """Request to create a keyword alert."""
+
     keyword: str
-    channel_id: Optional[UUID] = None  # None = all channels
+    channel_id: UUID | None = None  # None = all channels
     is_regex: bool = False
     is_case_sensitive: bool = False
-    notify_webhook: Optional[str] = None
+    notify_webhook: str | None = None
 
 
 class KeywordAlertUpdate(BaseModel):
     """Request to update a keyword alert."""
-    keyword: Optional[str] = None
-    channel_id: Optional[UUID] = None
-    is_regex: Optional[bool] = None
-    is_case_sensitive: Optional[bool] = None
-    is_active: Optional[bool] = None
-    notify_webhook: Optional[str] = None
+
+    keyword: str | None = None
+    channel_id: UUID | None = None
+    is_regex: bool | None = None
+    is_case_sensitive: bool | None = None
+    is_active: bool | None = None
+    notify_webhook: str | None = None
 
 
 class KeywordAlertResponse(BaseModel):
     """Response for a keyword alert."""
+
     id: UUID
     keyword: str
-    channel_id: Optional[UUID]
-    channel_title: Optional[str]
+    channel_id: UUID | None
+    channel_title: str | None
     is_regex: bool
     is_case_sensitive: bool
     is_active: bool
-    notify_webhook: Optional[str]
+    notify_webhook: str | None
     match_count: int
-    last_match_at: Optional[datetime]
+    last_match_at: datetime | None
     created_at: datetime
 
 
 class KeywordMatchResponse(BaseModel):
     """Response for a keyword match."""
+
     id: UUID
     keyword_alert_id: UUID
     keyword: str
     message_id: UUID
     channel_id: UUID
-    channel_title: Optional[str]
-    matched_text: Optional[str]
-    message_date: Optional[datetime]
+    channel_title: str | None
+    matched_text: str | None
+    message_date: datetime | None
     is_read: bool
     created_at: datetime
 
@@ -70,8 +73,8 @@ class KeywordMatchResponse(BaseModel):
 async def list_keyword_alerts(
     db: DbSession,
     current_user: CurrentUser,
-    channel_id: Optional[UUID] = Query(None),
-    is_active: Optional[bool] = Query(None),
+    channel_id: UUID | None = Query(None),
+    is_active: bool | None = Query(None),
 ) -> dict:
     """List all keyword alerts for the current user."""
     query = select(KeywordAlert).where(KeywordAlert.user_id == current_user.id)
@@ -99,7 +102,9 @@ async def list_keyword_alerts(
                 "id": alert.id,
                 "keyword": alert.keyword,
                 "channel_id": alert.channel_id,
-                "channel_title": channel_titles.get(alert.channel_id) if alert.channel_id else "All Channels",
+                "channel_title": channel_titles.get(alert.channel_id)
+                if alert.channel_id
+                else "All Channels",
                 "is_regex": alert.is_regex,
                 "is_case_sensitive": alert.is_case_sensitive,
                 "is_active": alert.is_active,
@@ -134,7 +139,7 @@ async def create_keyword_alert(
             select(UserChannel).where(
                 UserChannel.channel_id == request.channel_id,
                 UserChannel.user_id == current_user.id,
-                UserChannel.is_active == True,
+                UserChannel.is_active,
             )
         )
         if not result.scalar_one_or_none():
@@ -194,9 +199,7 @@ async def get_keyword_alert(
 
     channel_title = None
     if alert.channel_id:
-        result = await db.execute(
-            select(Channel.title).where(Channel.id == alert.channel_id)
-        )
+        result = await db.execute(select(Channel.title).where(Channel.id == alert.channel_id))
         channel_title = result.scalar()
 
     return {
@@ -252,7 +255,7 @@ async def update_keyword_alert(
     if request.notify_webhook is not None:
         alert.notify_webhook = request.notify_webhook
 
-    alert.updated_at = datetime.now(timezone.utc)
+    alert.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(alert)
 
@@ -320,8 +323,8 @@ async def get_keyword_matches(
     )
 
     if unread_only:
-        query = query.where(KeywordMatch.is_read == False)
-        count_query = count_query.where(KeywordMatch.is_read == False)
+        query = query.where(not KeywordMatch.is_read)
+        count_query = count_query.where(not KeywordMatch.is_read)
 
     # Get total
     result = await db.execute(count_query)
@@ -340,28 +343,26 @@ async def get_keyword_matches(
         channel_title = None
         message_date = None
 
-        result = await db.execute(
-            select(Channel.title).where(Channel.id == match.channel_id)
-        )
+        result = await db.execute(select(Channel.title).where(Channel.id == match.channel_id))
         channel_title = result.scalar()
 
-        result = await db.execute(
-            select(Message.date).where(Message.id == match.message_id)
-        )
+        result = await db.execute(select(Message.date).where(Message.id == match.message_id))
         message_date = result.scalar()
 
-        match_data.append({
-            "id": match.id,
-            "keyword_alert_id": match.keyword_alert_id,
-            "keyword": alert.keyword,
-            "message_id": match.message_id,
-            "channel_id": match.channel_id,
-            "channel_title": channel_title,
-            "matched_text": match.matched_text,
-            "message_date": message_date,
-            "is_read": match.is_read,
-            "created_at": match.created_at,
-        })
+        match_data.append(
+            {
+                "id": match.id,
+                "keyword_alert_id": match.keyword_alert_id,
+                "keyword": alert.keyword,
+                "message_id": match.message_id,
+                "channel_id": match.channel_id,
+                "channel_title": channel_title,
+                "matched_text": match.matched_text,
+                "message_date": message_date,
+                "is_read": match.is_read,
+                "created_at": match.created_at,
+            }
+        )
 
     return {
         "matches": match_data,
@@ -377,7 +378,7 @@ async def mark_matches_read(
     alert_id: UUID,
     db: DbSession,
     current_user: CurrentUser,
-    match_ids: Optional[list[UUID]] = None,
+    match_ids: list[UUID] | None = None,
 ) -> dict:
     """Mark keyword matches as read."""
     # Verify ownership
@@ -423,7 +424,7 @@ async def get_unread_count(
         .join(KeywordAlert)
         .where(
             KeywordAlert.user_id == current_user.id,
-            KeywordMatch.is_read == False,
+            not KeywordMatch.is_read,
         )
     )
     unread_count = result.scalar() or 0
