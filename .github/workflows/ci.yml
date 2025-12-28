@@ -135,30 +135,8 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-        run: npm run build
-
   # ============================================
-  # Docker Build
+  # Docker Build (includes frontend build)
   # ============================================
   docker-build:
     name: Docker Build
@@ -234,7 +212,6 @@ jobs:
       - backend-lint
       - backend-test
       - frontend-lint
-      - frontend-build
       - docker-build
     runs-on: ubuntu-latest
     if: always()
@@ -244,7 +221,6 @@ jobs:
           if [[ "${{ needs.backend-lint.result }}" != "success" ]] || \
              [[ "${{ needs.backend-test.result }}" != "success" ]] || \
              [[ "${{ needs.frontend-lint.result }}" != "success" ]] || \
-             [[ "${{ needs.frontend-build.result }}" != "success" ]] || \
              [[ "${{ needs.docker-build.result }}" != "success" ]]; then
             echo "One or more jobs failed"
             exit 1

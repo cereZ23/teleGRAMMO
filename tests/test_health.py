@@ -25,7 +25,8 @@ async def test_health_endpoint(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_root_redirects_to_docs(client: AsyncClient):
-    """Test root endpoint redirects to docs."""
-    response = await client.get("/", follow_redirects=False)
-    assert response.status_code in [307, 308, 302, 301]
+async def test_api_v1_available(client: AsyncClient):
+    """Test API v1 router is available."""
+    response = await client.get("/api/v1/auth/me")
+    # Should get 401 unauthorized (not 404), meaning the endpoint exists
+    assert response.status_code == 401
