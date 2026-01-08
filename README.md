@@ -91,22 +91,27 @@ docker-compose up -d
 
 Wait about 30 seconds for all services to initialize.
 
-### 3a. Run database migrations (first run)
+### 3a. Migrations
 
-Initialize the PostgreSQL schema:
+Migrations now auto-run on API/worker startup. On upgrades, you can simply:
+
+```bash
+docker-compose pull
+docker-compose restart api worker
+```
+
+Manual (optional):
 
 ```bash
 docker-compose run --rm migrate
 ```
 
-If you see an error about `gen_random_uuid()` missing, enable the extension and rerun:
+If `pgcrypto` is missing (some Postgres images), the containers attempt to enable it automatically. You can also enable it manually and rerun migrations:
 
 ```bash
 docker-compose exec postgres psql -U postgres -d telegram_scraper -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 docker-compose run --rm migrate
 ```
-
-Note: Until migrations finish, API/worker logs may show “relation ... does not exist”. This is expected.
 
 ### 4. Access the application
 
