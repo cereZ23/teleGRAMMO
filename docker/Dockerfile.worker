@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir \
     "fastapi>=0.104.0" \
+    "alembic>=1.12.0" \
     "sqlalchemy[asyncio]>=2.0.23" \
     "asyncpg>=0.29.0" \
     "pydantic>=2.5.0" \
@@ -27,6 +28,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy source code (will be overwritten by volume in dev)
 COPY src/ src/
+COPY alembic/ alembic/
+COPY alembic.ini .
+COPY docker/entrypoint.worker.sh docker/entrypoint.worker.sh
 
 # Add src to Python path
 ENV PYTHONPATH=/app/src
@@ -34,5 +38,5 @@ ENV PYTHONPATH=/app/src
 # Create media directory
 RUN mkdir -p /app/media
 
-# Run the worker
-CMD ["python", "-m", "telegram_scraper.workers.worker"]
+# Entrypoint runs migrations then starts worker
+ENTRYPOINT ["/bin/sh", "./docker/entrypoint.worker.sh"]

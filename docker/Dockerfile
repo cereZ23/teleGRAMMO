@@ -41,6 +41,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY src/ src/
 COPY alembic/ alembic/
 COPY alembic.ini .
+COPY docker/entrypoint.api.sh docker/entrypoint.api.sh
 
 # Add src to Python path
 ENV PYTHONPATH=/app/src
@@ -51,5 +52,5 @@ RUN mkdir -p /app/media
 # Expose port
 EXPOSE 8000
 
-# Run with hot reload for development
-CMD ["uvicorn", "telegram_scraper.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Entrypoint runs migrations then starts API
+ENTRYPOINT ["/bin/sh", "./docker/entrypoint.api.sh"]
