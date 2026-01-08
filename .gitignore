@@ -11,6 +11,9 @@ downloads/
 eggs/
 .eggs/
 lib/
+# Allow frontend TS lib utilities
+!frontend/src/lib/
+!frontend/src/lib/**
 lib64/
 parts/
 sdist/
