@@ -221,12 +221,10 @@ class ChannelService:
         # Build filters list
         filters = [Message.channel_id == channel_id]
 
-        # Full-text search using PostgreSQL tsvector
+        # Full-text search using indexed tsvector column (web-style syntax)
         if search_query:
-            # Use PostgreSQL full-text search for better performance
-            search_vector = func.to_tsvector("english", func.coalesce(Message.message_text, ""))
-            search_tsquery = func.plainto_tsquery("english", search_query)
-            filters.append(search_vector.op("@@")(search_tsquery))
+            search_tsquery = func.websearch_to_tsquery("simple", search_query)
+            filters.append(Message.search_vector.op("@@")(search_tsquery))
 
         # Media type filter
         if media_type:
