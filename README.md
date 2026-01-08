@@ -91,16 +91,16 @@ docker-compose up -d
 
 Wait about 30 seconds for all services to initialize.
 
-### 3a. Migrations
+### 3a. Migrations & Upgrades
 
-Migrations now auto-run on API/worker startup. On upgrades, you can simply:
+Migrations now auto-run on API/worker startup. For upgrades, just pull images and restart:
 
 ```bash
 docker-compose pull
-docker-compose restart api worker
+docker-compose restart api worker frontend
 ```
 
-Manual (optional):
+Manual migration (optional):
 
 ```bash
 docker-compose run --rm migrate

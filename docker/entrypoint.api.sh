@@ -29,5 +29,8 @@ alembic upgrade head || {
 }
 
 echo "[entrypoint] Starting API"
-exec uvicorn telegram_scraper.main:app --host 0.0.0.0 --port 8000 --reload
-
+RELOAD_ARGS=""
+if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
+  RELOAD_ARGS="--reload"
+fi
+exec uvicorn telegram_scraper.main:app --host 0.0.0.0 --port 8000 $RELOAD_ARGS

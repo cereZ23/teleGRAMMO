@@ -36,6 +36,7 @@ services:
       - tgs_network
 
   api:
+    image: ghcr.io/cereZ23/telegrammo-api:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -61,6 +62,7 @@ services:
     restart: unless-stopped
 
   worker:
+    image: ghcr.io/cereZ23/telegrammo-worker:latest
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
@@ -99,6 +101,7 @@ services:
       - migrate
 
   frontend:
+    image: ghcr.io/cereZ23/telegrammo-frontend:latest
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
