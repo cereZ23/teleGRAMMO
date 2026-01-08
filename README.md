@@ -91,6 +91,23 @@ docker-compose up -d
 
 Wait about 30 seconds for all services to initialize.
 
+### 3a. Run database migrations (first run)
+
+Initialize the PostgreSQL schema:
+
+```bash
+docker-compose run --rm migrate
+```
+
+If you see an error about `gen_random_uuid()` missing, enable the extension and rerun:
+
+```bash
+docker-compose exec postgres psql -U postgres -d telegram_scraper -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+docker-compose run --rm migrate
+```
+
+Note: Until migrations finish, API/worker logs may show “relation ... does not exist”. This is expected.
+
 ### 4. Access the application
 
 Open your browser: **http://localhost:3000**
@@ -313,6 +330,21 @@ The worker might be starting up or processing the job.
    docker-compose logs api
    docker-compose logs frontend
    ```
+
+### "relation ... does not exist" or UndefinedTableError
+
+Run DB migrations (first run or after reset):
+
+```bash
+docker-compose run --rm migrate
+```
+
+If needed, enable `pgcrypto` then rerun the migration:
+
+```bash
+docker-compose exec postgres psql -U postgres -d telegram_scraper -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+docker-compose run --rm migrate
+```
 
 ### Database connection refused
 
